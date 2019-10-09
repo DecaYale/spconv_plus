@@ -175,8 +175,8 @@ class SparseConvolution(SparseModule):
         if self.fused_bn:
             assert self.bias is not None
             out_features = ops.fused_indice_conv(features, self.weight, self.bias, indice_pairs.to(device),
-                                                indice_pair_num,
-                                                outids.shape[0], self.inverse, self.subm)
+                                                 indice_pair_num,
+                                                 outids.shape[0], self.inverse, self.subm)
         else:
             if self.subm:
                 out_features = Fsp.indice_subm_conv(features, self.weight,
@@ -186,14 +186,15 @@ class SparseConvolution(SparseModule):
             else:
                 if self.inverse:
                     out_features = Fsp.indice_inverse_conv(features, self.weight,
-                                                        indice_pairs.to(device),
-                                                        indice_pair_num,
-                                                        outids.shape[0])
+                                                           indice_pairs.to(
+                                                               device),
+                                                           indice_pair_num,
+                                                           outids.shape[0])
                 else:
                     out_features = Fsp.indice_conv(features, self.weight,
-                                                indice_pairs.to(device),
-                                                indice_pair_num,
-                                                outids.shape[0])
+                                                   indice_pairs.to(device),
+                                                   indice_pair_num,
+                                                   outids.shape[0])
 
             if self.bias is not None:
                 out_features += self.bias
@@ -202,6 +203,82 @@ class SparseConvolution(SparseModule):
         out_tensor.indice_dict = input.indice_dict
         out_tensor.grid = input.grid
         return out_tensor
+
+
+class SparseConcat(SparseModule):
+    def __init__(self,
+                 ndim,
+                 indice_key=None,
+                 ):
+        super(SparseConcat, self).__init__()
+
+        self.ndim = ndim
+        self.indice_key = indice_key
+
+    def forward(self, input1, input2):
+        assert isinstance(input1, spconv.SparseConvTensor)
+        assert isinstance(input2, spconv.SparseConvTensor)
+
+        features1 = input1.features
+        features2 = input2.features
+
+        device = features1.device
+
+        indices1 = input1.indices
+        indices2 = input2.indices
+      
+        spatial_shape1 = input1.spatial_shape
+        spatial_shape2 = input2.spatial_shape
+        assert spatial_shape1 == spatial_shape2
+
+        batch_size = input1.batch_size
+        # batch_size2 = input2.batch_size
+
+        out_spatial_shape = spatial_shape1
+        # out_spatial_shape2 = spatial_shape2
+
+        # input.update_grid(out_spatial_shape)
+        # t = time.time()
+        datas = input1.find_indice_pair(self.indice_key)
+        if self.indice_key is not None and datas is not None:
+            outids, _, indice_pairs, indice_pair_num, _ = datas
+        else:
+            outids, indice_pairs, indice_pair_num = ops.get_concat_indice_pairs(
+                indices1,
+                indices2,
+                batch_size,
+                spatial_shape1,
+                grid=input1.grid)
+            input1.indice_dict[self.indice_key] = (outids, indices1,
+                                                  indice_pairs,
+                                                  indice_pair_num,
+                                                  spatial_shape1)
+
+            # input2.indice_dict[self.indice_key] = (outids, indices2,
+            #                                       indice_pairs,
+            #                                       indice_pair_num,
+            #                                       spatial_shape2)
+      
+        
+        out_features = Fsp.indice_concat(features1,features2,
+                                                indice_pairs.to(device),
+                                                indice_pair_num,
+                                                )
+          
+          
+        out_tensor = spconv.SparseConvTensor(out_features, outids,
+                                             out_spatial_shape, batch_size)
+        out_tensor.indice_dict = input1.indice_dict #TODO:
+        out_tensor.grid = input1.grid # TODO:
+        return out_tensor
+
+class SparseConcat3d(SparseConcat):
+    def __init__(self,
+                 indice_key=None):
+        super(SparseConcat3d, self).__init__(
+            3,
+            indice_key=indice_key)
+
 
 
 class SparseConv2d(SparseConvolution):
@@ -250,6 +327,7 @@ class SparseConv3d(SparseConvolution):
             groups,
             bias,
             indice_key=indice_key)
+
 
 class SparseConv4d(SparseConvolution):
     def __init__(self,
@@ -407,6 +485,7 @@ class SubMConv3d(SparseConvolution):
             bias,
             True,
             indice_key=indice_key)
+
 
 class SubMConv4d(SparseConvolution):
     def __init__(self,

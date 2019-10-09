@@ -73,6 +73,21 @@ struct CreateSubMIndicePairFunctor
         const tv::SimpleVector<Index, NDim> dilation,
         const tv::SimpleVector<Index, NDim> outSpatialShape, bool transpose, bool resetGrid=false);
 };
+
+template <typename Device, typename Index, typename IndexGrid, unsigned NDim>
+struct CreateConcatIndicePairFunctor
+{
+    Index operator()(
+        const Device& d, 
+        tv::TensorView<const Index> indicesIn1, 
+        tv::TensorView<const Index> indicesIn2, 
+        tv::TensorView<IndexGrid> gridsOut,
+        tv::TensorView<Index> indicePairs, tv::TensorView<Index> indiceNum,
+        const tv::SimpleVector<Index, NDim> outSpatialShape, 
+        tv::TensorView<Index> outInds,
+         bool resetGrid=false);
+};
+
 } // namespace functor
 } // namespace spconv
 

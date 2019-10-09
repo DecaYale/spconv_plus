@@ -111,7 +111,40 @@ class SparseMaxPoolFunction(Function):
         input_bp = ops.indice_maxpool_backward(features, out, grad_output, indice_pairs, indice_pair_num)
         return input_bp, None, None, None
 
+class SparseConcatFunction(Function):
+    @staticmethod
+    def forward(
+            ctx,
+            features1,
+            features2,
+            indice_pairs,
+            indice_pair_num,
+            ):
+
+         #append a dummy zero vector, a little bit tricky but convenient 
+        features1 = torch.cat([features1, torch.zeros_like(features1[0:1])], dim=0)
+        features2 = torch.cat([features2, torch.zeros_like(features2[0:1])], dim=0)
+        ctx.save_for_backward(
+            indice_pairs,
+            indice_pair_num,
+            features1,
+            features2,
+            )
+
+        return ops.indice_concat(features1, features2, indice_pairs, indice_pair_num)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        indice_pairs, indice_pair_num, features1, features2 = ctx.saved_tensors
+        fea1Grad, fea2Grad = ops.indice_concat_backward(features1, features2, grad_output, indice_pairs, indice_pair_num)
+
+        #remember to remove the last row 
+        return fea1Grad[:-1], fea2Grad[:-1], None, None
+
+
+
 indice_conv = SparseConvFunction.apply
 indice_inverse_conv = SparseInverseConvFunction.apply
 indice_subm_conv = SubMConvFunction.apply
 indice_maxpool = SparseMaxPoolFunction.apply
+indice_concat = SparseConcatFunction.apply

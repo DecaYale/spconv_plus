@@ -14,9 +14,9 @@
 
 #ifndef INDICE_CU_H_
 #define INDICE_CU_H_
-#include <tensorview/tensorview.h>
-#include <tensorview/helper_kernel.cu.h>
 #include <spconv/geometry.h>
+#include <tensorview/helper_kernel.cu.h>
+#include <tensorview/tensorview.h>
 
 namespace spconv {
 template <typename Index, typename IndexGrid, unsigned NDim,
@@ -150,8 +150,8 @@ assignIndicePairsKernel(tv::TensorView<Index> indicesOut,
 template <typename Index, typename IndexGrid, unsigned NDim>
 __global__ void
 prepareSubMGridKernel(tv::TensorView<const Index> indicesIn,
-                  tv::TensorView<IndexGrid> gridsOut,
-                  const tv::SimpleVector<Index, NDim> outSpatialShape) {
+                      tv::TensorView<IndexGrid> gridsOut,
+                      const tv::SimpleVector<Index, NDim> outSpatialShape) {
   auto numActIn = indicesIn.dim(0);
   Index spatialVolume = 1;
 #pragma unroll
@@ -202,6 +202,99 @@ __global__ void getSubMIndicePairsKernel(
         indicePairs(offset, 1, oldNum) = gridsOut[index];
         indicePairs(offset, 0, oldNum) = ix;
       }
+    }
+  }
+}
+//!!DY!!
+template <typename Index, typename IndexGrid, unsigned NDim,
+          int KernelMaxVolume = 256>
+__global__ void getConcatIndicePairsKernel_step1(
+    tv::TensorView<const Index> indicesIn1,
+    tv::TensorView<const Index> indicesIn2, tv::TensorView<IndexGrid> gridsOut,
+    tv::TensorView<Index> indicePairs, tv::TensorView<Index> indiceNum,
+    // const tv::SimpleVector<Index, NDim> kernelSize,
+    // const tv::SimpleVector<Index, NDim> stride,
+    // const tv::SimpleVector<Index, NDim> padding,
+    // const tv::SimpleVector<Index, NDim> dilation,
+    const tv::SimpleVector<Index, NDim> outSpatialShape,
+    tv::TensorView<Index> outInds
+) {
+  auto numActIn1 = indicesIn1.dim(0);
+  auto numActIn2 = indicesIn2.dim(0);
+  Index spatialVolume = 1;
+#pragma unroll
+  for (int i = 0; i < NDim; ++i) {
+    spatialVolume *= outSpatialShape[i];
+  }
+  // Index numValidPoints = 0;
+  // Index validPoints[KernelMaxVolume * (NDim + 1)];
+  Index *pointPtr = nullptr;
+  Index index = 0;
+  int offset = 0;
+  for (int ix : tv::KernelLoopX<int>(numActIn1)) {
+    pointPtr = (Index*)indicesIn1.data()+ ix*(NDim+1)+1;
+
+    index = tv::rowArrayIdx<Index, NDim>(pointPtr, outSpatialShape.data()) +
+            spatialVolume * indicesIn1(ix, 0);
+    if (gridsOut[index] > -1) {
+      auto oldNum = atomicAdd(indiceNum.data() + offset, Index(1));
+
+      for (int k = 0; k < NDim + 1; k++) {
+        outInds(oldNum, k) = indicesIn1(ix, k);
+      }
+      indicePairs(offset, 0, oldNum) = ix;
+      indicePairs(offset, 1, oldNum) = gridsOut[index];
+      gridsOut[index] = -1; // clear the flag
+      // outInds(ix) = indicesIn1(ix);
+    } else {
+      auto oldNum = atomicAdd(indiceNum.data() + offset, Index(1));
+      for (int k = 0; k < NDim + 1; k++) {
+        outInds(oldNum, k) = indicesIn1(ix, k);
+      }
+      indicePairs(offset, 0, oldNum) = ix;
+      indicePairs(offset, 1, oldNum) =
+          numActIn2; // the last element of features is dummy and filled with
+                     // 0's
+      // outInds(ix) = indicesIn1(ix);
+    }
+  }
+}
+template <typename Index, typename IndexGrid, unsigned NDim,
+          int KernelMaxVolume = 256>
+__global__ void getConcatIndicePairsKernel_step2(
+    tv::TensorView<const Index> indicesIn1,
+    tv::TensorView<const Index> indicesIn2, tv::TensorView<IndexGrid> gridsOut,
+    tv::TensorView<Index> indicePairs, tv::TensorView<Index> indiceNum,
+    // const tv::SimpleVector<Index, NDim> kernelSize,
+    // const tv::SimpleVector<Index, NDim> stride,
+    // const tv::SimpleVector<Index, NDim> padding,
+    // const tv::SimpleVector<Index, NDim> dilation,
+    const tv::SimpleVector<Index, NDim> outSpatialShape,
+    tv::TensorView<Index> outInds ) {
+  auto numActIn1 = indicesIn1.dim(0);
+  auto numActIn2 = indicesIn2.dim(0);
+  Index spatialVolume = 1;
+#pragma unroll
+  for (int i = 0; i < NDim; ++i) {
+    spatialVolume *= outSpatialShape[i];
+  }
+  // Index numValidPoints = 0;
+  // Index validPoints[KernelMaxVolume * (NDim + 1)];
+  Index *pointPtr = nullptr;
+  Index index = 0;
+  int offset = 0;
+  for (int ix : tv::KernelLoopX<int>(numActIn2)) {
+    pointPtr = (Index*)indicesIn2.data()+(NDim+1)*ix+1;
+    index = tv::rowArrayIdx<Index, NDim>(pointPtr, outSpatialShape.data()) +
+            spatialVolume * indicesIn2(ix, 0);
+    if (gridsOut[index] > -1) {
+      auto oldNum = atomicAdd(indiceNum.data() + offset, Index(1));
+      for (int k = 0; k < NDim + 1; k++) {
+        outInds(oldNum, k) = indicesIn2(ix, k);
+      }
+      indicePairs(offset, 0, oldNum) = numActIn1;
+      indicePairs(offset, 1, oldNum) = ix;
+      gridsOut[index] = -1; // clear the flag
     }
   }
 }

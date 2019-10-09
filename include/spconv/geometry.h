@@ -19,13 +19,15 @@
 #include <limits>
 #include <tensorview/tensorview.h>
 
-namespace spconv {
+namespace spconv
+{
 template <typename Index, unsigned NDim>
 TV_HOST_DEVICE Index getValidOutPos(const Index *input_pos,
                                     const Index *kernelSize,
                                     const Index *stride, const Index *padding,
                                     const Index *dilation,
-                                    const Index *outSpatialShape, Index *out) {
+                                    const Index *outSpatialShape, Index *out)
+{
   Index lowers[NDim];
   Index uppers[NDim];
   Index counter[NDim];
@@ -36,7 +38,8 @@ TV_HOST_DEVICE Index getValidOutPos(const Index *input_pos,
   Index m, offset;
   bool valid = false;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     lowers[i] = (input_pos[i] - (kernelSize[i] - 1) * dilation[i] - 1 +
                  stride[i] + padding[i]) /
                 stride[i];
@@ -44,24 +47,29 @@ TV_HOST_DEVICE Index getValidOutPos(const Index *input_pos,
   }
 
 #pragma unroll
-  for (unsigned i = 0; i < NDim; ++i) {
+  for (unsigned i = 0; i < NDim; ++i)
+  {
     counterSize[i] = ((uppers[i] - lowers[i]) / dilation[i] + 1);
     numPoints *= counterSize[i];
   }
 
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     counter[i] = 0;
   }
-  for (int i = 0; i < numPoints; ++i) {
+  for (int i = 0; i < numPoints; ++i)
+  {
     valid = true;
     m = 1;
     offset = 0;
 #pragma unroll
-    for (int j = NDim - 1; j >= 0; --j) {
+    for (int j = NDim - 1; j >= 0; --j)
+    {
       val = uppers[j] - counter[j] * dilation[j];
       out[pointCounter * (NDim + 1) + j] = val;
-      if (val < 0 || (val > outSpatialShape[j] - 1)) {
+      if (val < 0 || (val > outSpatialShape[j] - 1))
+      {
         valid = false;
         // break;
       }
@@ -74,8 +82,10 @@ TV_HOST_DEVICE Index getValidOutPos(const Index *input_pos,
       ++pointCounter;
     counter[NDim - 1] += 1;
 #pragma unroll
-    for (int c = NDim - 1; c >= 0; --c) {
-      if (counter[c] == counterSize[c] && c > 0) {
+    for (int c = NDim - 1; c >= 0; --c)
+    {
+      if (counter[c] == counterSize[c] && c > 0)
+      {
         counter[c - 1] += 1;
         counter[c] = 0;
       }
@@ -88,7 +98,8 @@ template <typename Index, unsigned NDim>
 TV_HOST_DEVICE Index getValidOutPosTranspose(
     const Index *input_pos, const Index *kernelSize, const Index *stride,
     const Index *padding, const Index *dilation, const Index *outSpatialShape,
-    Index *out) {
+    Index *out)
+{
   Index lowers[NDim];
   Index uppers[NDim];
   Index counter[NDim];
@@ -99,28 +110,34 @@ TV_HOST_DEVICE Index getValidOutPosTranspose(
   Index m, offset;
   bool valid = false;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     lowers[i] = input_pos[i] * stride[i] - padding[i];
     uppers[i] = lowers[i] + (kernelSize[i] - 1) * dilation[i];
   }
 #pragma unroll
-  for (unsigned i = 0; i < NDim; ++i) {
+  for (unsigned i = 0; i < NDim; ++i)
+  {
     counterSize[i] = ((uppers[i] - lowers[i]) / dilation[i] + 1);
     numPoints *= counterSize[i];
   }
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     counter[i] = 0;
   }
-  for (int i = 0; i < numPoints; ++i) {
+  for (int i = 0; i < numPoints; ++i)
+  {
     valid = true;
     m = 1;
     offset = 0;
 #pragma unroll
-    for (int j = NDim - 1; j >= 0; --j) {
+    for (int j = NDim - 1; j >= 0; --j)
+    {
       val = uppers[j] - counter[j] * dilation[j];
       out[pointCounter * (NDim + 1) + j] = val;
-      if (val < 0 || (val > outSpatialShape[j] - 1)) {
+      if (val < 0 || (val > outSpatialShape[j] - 1))
+      {
         valid = false;
         // break;
       }
@@ -132,8 +149,10 @@ TV_HOST_DEVICE Index getValidOutPosTranspose(
       ++pointCounter;
     counter[NDim - 1] += 1;
 #pragma unroll
-    for (int c = NDim - 1; c >= 0; --c) {
-      if (counter[c] == counterSize[c] && c > 0) {
+    for (int c = NDim - 1; c >= 0; --c)
+    {
+      if (counter[c] == counterSize[c] && c > 0)
+      {
         counter[c - 1] += 1;
         counter[c] = 0;
       }
@@ -150,37 +169,44 @@ Index getIndicePairsConv(tv::TensorView<const Index> indicesIn,
                          tv::TensorView<Index> indiceNum,
                          const Index *kernelSize, const Index *stride,
                          const Index *padding, const Index *dilation,
-                         const Index *outSpatialShape) {
+                         const Index *outSpatialShape)
+{
   // indicesOut: num_active * kernelVolume * (NDim + 1)
   Index numAct = 0;
   auto numActIn = indicesIn.dim(0);
   Index batchIdx = 0;
   Index spatialVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     spatialVolume *= outSpatialShape[i];
   }
   Index kernelVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     kernelVolume *= kernelSize[i];
   }
   Index numValidPoints = 0;
   std::vector<Index> validPoints_(kernelVolume * (NDim + 1));
-  Index* validPoints = validPoints_.data();
+  Index *validPoints = validPoints_.data();
   Index *pointPtr = nullptr;
-  for (int j = 0; j < numActIn; ++j) {
+  for (int j = 0; j < numActIn; ++j)
+  {
     batchIdx = indicesIn(j, 0);
     numValidPoints = getValidOutPos<Index, NDim>(
         indicesIn.data() + j * (NDim + 1) + 1, kernelSize, stride, padding,
         dilation, outSpatialShape, validPoints);
-    for (Index i = 0; i < numValidPoints; ++i) {
-      pointPtr = validPoints + i * (NDim + 1);
+    for (Index i = 0; i < numValidPoints; ++i)
+    {
+      pointPtr = validPoints + i * (NDim + 1); //coords of ith location?
       auto offset = pointPtr[NDim];
       auto index = tv::rowArrayIdx<Index, NDim>(pointPtr, outSpatialShape) +
                    spatialVolume * batchIdx;
-      if (gridsOut[index] == -1) {
-        for (unsigned k = 1; k < NDim + 1; ++k) {
+      if (gridsOut[index] == -1)
+      {
+        for (unsigned k = 1; k < NDim + 1; ++k)
+        {
           indicesOut(numAct, k) = pointPtr[k - 1];
         }
         indicesOut(numAct, 0) = batchIdx;
@@ -202,36 +228,43 @@ Index getIndicePairsDeConv(tv::TensorView<const Index> indicesIn,
                            tv::TensorView<Index> indiceNum,
                            const Index *kernelSize, const Index *stride,
                            const Index *padding, const Index *dilation,
-                           const Index *outSpatialShape) {
+                           const Index *outSpatialShape)
+{
   Index numAct = 0;
   auto numActIn = indicesIn.dim(0);
   Index batchIdx = 0;
   Index spatialVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     spatialVolume *= outSpatialShape[i];
   }
   Index kernelVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     kernelVolume *= kernelSize[i];
   }
   Index numValidPoints = 0;
   std::vector<Index> validPoints_(kernelVolume * (NDim + 1));
-  Index* validPoints = validPoints_.data();
+  Index *validPoints = validPoints_.data();
   Index *pointPtr = nullptr;
-  for (int j = 0; j < numActIn; ++j) {
+  for (int j = 0; j < numActIn; ++j)
+  {
     batchIdx = indicesIn(j, 0);
     numValidPoints = getValidOutPosTranspose<Index, NDim>(
         indicesIn.data() + j * (NDim + 1) + 1, kernelSize, stride, padding,
         dilation, outSpatialShape, validPoints);
-    for (Index i = 0; i < numValidPoints; ++i) {
+    for (Index i = 0; i < numValidPoints; ++i)
+    {
       pointPtr = validPoints + i * (NDim + 1);
       auto offset = pointPtr[NDim];
       auto index = tv::rowArrayIdx<Index, NDim>(pointPtr, outSpatialShape) +
                    spatialVolume * batchIdx;
-      if (gridsOut[index] == -1) {
-        for (unsigned k = 1; k < NDim + 1; ++k) {
+      if (gridsOut[index] == -1)
+      {
+        for (unsigned k = 1; k < NDim + 1; ++k)
+        {
           indicesOut(numAct, k) = pointPtr[k - 1];
         }
         indicesOut(numAct, 0) = batchIdx;
@@ -252,48 +285,141 @@ Index getIndicePairsSubM(tv::TensorView<const Index> indicesIn,
                          tv::TensorView<Index> indiceNum,
                          const Index *const kernelSize,
                          const Index *const stride, const Index *const padding,
-                         const Index *dilation, const Index *const outSpatialShape) {
+                         const Index *dilation, const Index *const outSpatialShape)
+{
   Index numAct = 0;
   auto numActIn = indicesIn.dim(0);
   Index batchIdx = 0;
   Index spatialVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     spatialVolume *= outSpatialShape[i];
   }
   Index kernelVolume = 1;
 #pragma unroll
-  for (int i = 0; i < NDim; ++i) {
+  for (int i = 0; i < NDim; ++i)
+  {
     kernelVolume *= kernelSize[i];
   }
   Index numValidPoints = 0;
   // Index validPoints[kernelVolume * (NDim + 1)];
   std::vector<Index> validPoints_(kernelVolume * (NDim + 1));
-  Index* validPoints = validPoints_.data();
+  Index *validPoints = validPoints_.data();
   Index *pointPtr = nullptr;
   Index index = 0;
-  for (int j = 0; j < numActIn; ++j) {
+  for (int j = 0; j < numActIn; ++j)
+  {
     index = tv::rowArrayIdx<Index, NDim>(indicesIn.data() + j * (NDim + 1) + 1,
                                          outSpatialShape) +
-            spatialVolume * indicesIn(j, 0);
+            spatialVolume * indicesIn(j, 0); // 
     gridsOut[index] = j;
   }
-  for (int j = 0; j < numActIn; ++j) {
+  for (int j = 0; j < numActIn; ++j)
+  {
     numValidPoints = getValidOutPos<Index, NDim>(
         indicesIn.data() + j * (NDim + 1) + 1, kernelSize, stride, padding,
         dilation, outSpatialShape, validPoints);
-    for (Index i = 0; i < numValidPoints; ++i) {
+    for (Index i = 0; i < numValidPoints; ++i)
+    {
       pointPtr = validPoints + i * (NDim + 1);
       auto offset = pointPtr[NDim];
       index = tv::rowArrayIdx<Index, NDim>(pointPtr, outSpatialShape) +
               spatialVolume * indicesIn(j, 0);
-      if (gridsOut[index] > -1) {
+      if (gridsOut[index] > -1)
+      {
         indicePairs(offset, 0, indiceNum[offset]) = j;
         indicePairs(offset, 1, indiceNum[offset]++) = gridsOut[index];
       }
     }
   }
   return numActIn;
+}
+
+template <typename Index, typename IndexGrid, unsigned NDim>
+Index getIndicePairsConcat(tv::TensorView<const Index> indicesIn1,
+                           tv::TensorView<const Index> indicesIn2,
+                           tv::TensorView<IndexGrid> gridsOut, //acts like a hash table
+                           tv::TensorView<Index> indicePairs,
+                           tv::TensorView<Index> indiceNum,
+                           //  const Index *const kernelSize,
+                           //  const Index *const stride, const Index *const padding,
+                           //  const Index *dilation,
+                           const Index *const outSpatialShape,
+                            tv::TensorView<Index> outInds
+)
+{
+  Index numAct = 0;
+  auto numActIn1 = indicesIn1.dim(0);
+  auto numActIn2 = indicesIn2.dim(0);
+
+  Index batchIdx = 0;
+  Index spatialVolume = 1;
+#pragma unroll
+  for (int i = 0; i < NDim; ++i)
+  {
+    spatialVolume *= outSpatialShape[i];
+  }
+
+  // Index numValidPoints = 0;
+  // Index validPoints[kernelVolume * (NDim + 1)];
+  // std::vector<Index> validPoints_(kernelVolume * (NDim + 1));
+  // Index *validPoints = validPoints_.data();
+  // Index *pointPtr = nullptr;
+  Index index = 0;
+  int offset = 0;
+
+  for (int j = 0; j < numActIn2; ++j)
+  {
+    index = tv::rowArrayIdx<Index, NDim>(indicesIn2.data() + j * (NDim + 1) + 1,
+                                         outSpatialShape) +
+            spatialVolume * indicesIn2(j, 0); // indexing from 1 not 0?
+    gridsOut[index] = j;
+  }
+
+  for (int j = 0; j < numActIn1; ++j)
+  {
+    index = tv::rowArrayIdx<Index, NDim>(indicesIn1.data() + j * (NDim + 1) + 1,
+                                         outSpatialShape) +
+            spatialVolume * indicesIn1(j, 0);
+    if (gridsOut[index] > -1)
+    {
+      for (int k=0; k<NDim+1; k++){
+        outInds(indiceNum[offset], k) = indicesIn1(j,k);
+      }
+      indicePairs(offset, 0, indiceNum[offset]) = j;
+      indicePairs(offset, 1, indiceNum[offset]++) = gridsOut[index];
+      gridsOut[index] = -1; // clear the flag
+
+    }
+    else
+    {
+      for (int k=0; k<NDim+1; k++){
+        outInds(indiceNum[offset], k) = indicesIn1(j,k);
+      }
+      indicePairs(offset, 0, indiceNum[offset]) = j;
+      indicePairs(offset, 1, indiceNum[offset]++) = numActIn2; // the last element of features is dummy and filled with 0's
+    }
+  }
+
+  for (int j = 0; j < numActIn2; ++j)
+  {
+    index = tv::rowArrayIdx<Index, NDim>(indicesIn2.data() + j * (NDim + 1) + 1,
+                                         outSpatialShape) +
+            spatialVolume * indicesIn2(j, 0);
+    if (gridsOut[index] > -1)
+    {
+      for (int k=0; k<NDim+1; k++){
+        outInds(indiceNum[offset], k) = indicesIn2(j,k);
+      }
+      indicePairs(offset, 0, indiceNum[offset]) = numActIn1; // the last element of features is dummy and filled with 0'
+      indicePairs(offset, 1, indiceNum[offset]++) = j;
+      // outInds(index) = indicesIn2(j);
+    }
+  }
+
+  // return numActIn;
+  return indiceNum[offset];
 }
 
 } // namespace spconv

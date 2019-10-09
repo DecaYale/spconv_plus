@@ -1,11 +1,11 @@
 # Copyright 2019 Yan Yan
-# 
+#
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
-# 
+#
 #     http://www.apache.org/licenses/LICENSE-2.0
-# 
+#
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,6 +21,7 @@ from spconv import utils
 from spconv.conv import SparseConv2d, SparseConv3d, SubMConv2d, SubMConv3d
 from spconv.conv import SparseConvTranspose2d, SparseConvTranspose3d
 from spconv.conv import SparseInverseConv2d, SparseInverseConv3d
+from spconv.conv import SparseConcat3d
 from spconv.modules import SparseModule, SparseSequential
 from spconv.pool import SparseMaxPool2d, SparseMaxPool3d
 
@@ -31,6 +32,7 @@ if platform.system() == "Windows":
     _LIB_FILE_NAME = "spconv.dll"
 _LIB_PATH = str(Path(__file__).parent / _LIB_FILE_NAME)
 torch.ops.load_library(_LIB_PATH)
+
 
 def scatter_nd(indices, updates, shape):
     """pytorch edition of tensorflow scatter_nd.
@@ -45,7 +47,8 @@ def scatter_nd(indices, updates, shape):
     slices = [flatted_indices[:, i] for i in range(ndim)]
     slices += [Ellipsis]
     ret[slices] = updates.view(*output_shape)
-    return ret
+    return ret  # NxDxHxWxC
+
 
 class SparseConvTensor(object):
     def __init__(self, features, indices, spatial_shape, batch_size, grid=None):
@@ -55,7 +58,10 @@ class SparseConvTensor(object):
                 is very large.
         """
         self.features = features
-        self.indices = indices 
+        self.indices = indices
+        #!!DY!!
+        assert len(features) == len(indices)
+
         if self.indices.dtype != torch.int32:
             self.indices.int()
         self.spatial_shape = spatial_shape
@@ -69,13 +75,14 @@ class SparseConvTensor(object):
 
     def find_indice_pair(self, key):
         if key is None:
-            return None 
+            return None
         if key in self.indice_dict:
             return self.indice_dict[key]
         return None
 
     def dense(self, channels_first=True):
-        output_shape = [self.batch_size] + list(self.spatial_shape) + [self.features.shape[1]]
+        output_shape = [self.batch_size] + \
+            list(self.spatial_shape) + [self.features.shape[1]]
         res = scatter_nd(self.indices.long(), self.features, output_shape)
         if not channels_first:
             return res
@@ -92,12 +99,15 @@ class SparseConvTensor(object):
 class ToDense(SparseModule):
     """convert SparseConvTensor to NCHW dense tensor.
     """
+
     def forward(self, x: SparseConvTensor):
         return x.dense()
+
 
 class RemoveGrid(SparseModule):
     """remove pre-allocated grid buffer.
     """
+
     def forward(self, x: SparseConvTensor):
         x.grid = None
         return x
