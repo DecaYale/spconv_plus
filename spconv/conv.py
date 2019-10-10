@@ -215,7 +215,8 @@ class SparseConcat(SparseModule):
         self.ndim = ndim
         self.indice_key = indice_key
 
-    def forward(self, input1, input2):
+    def forward(self, input):
+        input1, input2 = input
         assert isinstance(input1, spconv.SparseConvTensor)
         assert isinstance(input2, spconv.SparseConvTensor)
 
@@ -229,7 +230,7 @@ class SparseConcat(SparseModule):
       
         spatial_shape1 = input1.spatial_shape
         spatial_shape2 = input2.spatial_shape
-        assert spatial_shape1 == spatial_shape2
+        assert (spatial_shape1 == spatial_shape2).all()
 
         batch_size = input1.batch_size
         # batch_size2 = input2.batch_size
