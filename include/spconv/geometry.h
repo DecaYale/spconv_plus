@@ -37,6 +37,7 @@ TV_HOST_DEVICE Index getValidOutPos(const Index *input_pos,
   Index numPoints = 1;
   Index m, offset;
   bool valid = false;
+  // the coordinate lower bounds and upper bounds for each dimmension 
 #pragma unroll
   for (int i = 0; i < NDim; ++i)
   {

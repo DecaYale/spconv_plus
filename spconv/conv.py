@@ -230,7 +230,7 @@ class SparseConcat(SparseModule):
       
         spatial_shape1 = input1.spatial_shape
         spatial_shape2 = input2.spatial_shape
-        assert (spatial_shape1 == spatial_shape2).all()
+        assert (list(spatial_shape1) == list(spatial_shape2))
 
         batch_size = input1.batch_size
         # batch_size2 = input2.batch_size
