@@ -141,7 +141,12 @@ class VoxelGenerator:
                  point_cloud_range,
                  max_num_points,
                  max_voxels=20000,
-                 full_mean=True):
+                 full_mean=True,
+                 block_filtering=True,
+                 block_factor=1,
+                 block_size=8,
+                 height_threshold=0.2
+                 ):
         point_cloud_range = np.array(point_cloud_range, dtype=np.float32)
         # [0, -40, -3, 70.4, 40, 1]
         voxel_size = np.array(voxel_size, dtype=np.float32)
@@ -150,6 +155,11 @@ class VoxelGenerator:
         grid_size = np.round(grid_size).astype(np.int64)
         voxelmap_shape = tuple(np.round(grid_size).astype(np.int32).tolist())
         voxelmap_shape = voxelmap_shape[::-1]
+        #added by dy
+        if block_filtering:
+            assert block_size > 0
+            assert grid_size[0] % block_factor == 0
+            assert grid_size[1] % block_factor == 0
 
         self._coor_to_voxelidx = np.full(voxelmap_shape, -1, dtype=np.int32)
         self._voxel_size = voxel_size
@@ -158,12 +168,21 @@ class VoxelGenerator:
         self._max_voxels = max_voxels
         self._grid_size = grid_size
         self._full_mean = full_mean
+        self._block_filtering = block_filtering
+        self._block_factor = block_factor
+        self._block_size = block_size
+        self._height_threshold=height_threshold
+
 
     def generate(self, points, max_voxels=None):
         res = points_to_voxel(points, self._voxel_size,
                               self._point_cloud_range, self._coor_to_voxelidx,
                               self._max_num_points, max_voxels
-                              or self._max_voxels, self._full_mean)
+                              or self._max_voxels, self._full_mean, 
+                              block_filtering=self._block_filtering,
+                              block_factor=self._block_factor,
+                              block_size=self._block_size,
+                              height_threshold=self._height_threshold)
         voxels = res["voxels"]
         coors = res["coordinates"]
         num_points_per_voxel = res["num_points_per_voxel"]

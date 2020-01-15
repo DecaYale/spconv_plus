@@ -381,7 +381,7 @@ int points_to_voxel_3d_with_filtering(py::array_t<DType> points, py::array_t<DTy
       }
       block_coor[0] = coor[1] / block_factor;
       block_coor[1] = coor[2] / block_factor;
-      mins_rw(block_coor[0], block_coor[1]) = std::min(points_rw(i, 2), mins_rw(block_coor[0], block_coor[1]));
+      mins_rw(block_coor[0], block_coor[1]) = std::min(points_rw(i, 2), mins_rw(block_coor[0], block_coor[1])); //seems to be z coordinate
       maxs_rw(block_coor[0], block_coor[1]) = std::max(points_rw(i, 2), maxs_rw(block_coor[0], block_coor[1]));
       num_points_per_voxel_rw(voxelidx) += 1;
     }
